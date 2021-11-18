@@ -3,9 +3,11 @@ package it.cineca.html2pdf;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
 import org.jsoup.Jsoup;
 import org.jsoup.helper.W3CDom;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,16 +19,17 @@ import java.nio.file.Files;
 public class Html2Pdf {
 
     @Parameter(names = {"--input", "-i"}, description = "The html input file")
-    private String input;
+    protected String input;
 
     @Parameter(names = {"output", "-o"}, description = "The pdf output file")
-    private String output;
+    protected String output;
 
+    @SuppressWarnings("CanBeFinal")
     @Parameter(names = {"--clean", "-c"}, description = "Clean html with jSoup")
-    private boolean clean = false;
+    protected boolean clean = false;
 
     @Parameter(names = {"--encoding", "-e"}, description = "Clean html with jSoup")
-    private String encoding = "utf-8";
+    protected String encoding = "utf-8";
 
     public static void main(String... argv) {
         Html2Pdf html2pdf = new Html2Pdf();
@@ -44,6 +47,10 @@ public class Html2Pdf {
     }
 
     public void run() throws IOException {
+        Document jsoupDocument = null;
+        String baseUri = "/";
+        File file = null;
+
         if (null == input) {
             throw new IOException("Input file is not specified");
         }
@@ -51,20 +58,32 @@ public class Html2Pdf {
             throw new IOException("Output file is not specified");
         }
 
-        Document jsoupDocument = null;
-        if (input.startsWith("http://") || input.startsWith("https://")) {
-            try {
-                jsoupDocument = Jsoup.connect(input).get();
-            } catch (Exception e) {
-                throw new IOException(String.format("ERROR retrieving url %s (%s): %s",
-                        input, e.getClass().getSimpleName(), e.getMessage()));
-            }
-        } else {
-            File file = new File(input);
+        if (!isFullUrl(input)) {
+            file = new File(input);
             if (!file.exists()) {
                 throw new IOException("Input file not found: " + input);
             }
-            if (clean) {
+        }
+
+        if (clean) {
+            if (null == file) {
+                try {
+                    jsoupDocument = Jsoup.connect(input).get();
+                    baseUri = input;
+                    if (!baseUri.endsWith("/")) {
+                        baseUri = input + "/";
+                    }
+                    for (Element el : jsoupDocument.getElementsByTag("a")) {
+                        String href = el.attr("href");
+                        if (!href.isEmpty()) {
+                            el.attr("href", el.absUrl("href"));
+                        }
+                    }
+                } catch (Exception e) {
+                    throw new IOException(String.format("ERROR retrieving url %s (%s): %s",
+                            input, e.getClass().getSimpleName(), e.getMessage()));
+                }
+            } else {
                 if (!Charset.isSupported(encoding)) {
                     encoding = "UTF-8";
                 }
@@ -80,15 +99,21 @@ public class Html2Pdf {
         try (OutputStream os = new FileOutputStream(output)) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             if (null != jsoupDocument) {
-                builder.withUri(output);
-                builder.withW3cDocument(new W3CDom().fromJsoup(jsoupDocument), "/");
+                builder.withW3cDocument(new W3CDom().fromJsoup(jsoupDocument), baseUri);
+            } else if (null == file) {
+                builder.withUri(input);
             } else {
-                builder.withFile(new File(input));
+                builder.withFile(file);
             }
             builder.toStream(os);
+            builder.useSVGDrawer(new BatikSVGDrawer());
             builder.run();
         } catch (Exception e) {
             throw new IOException("Parsing error: " + e.getMessage());
         }
+    }
+
+    private boolean isFullUrl(String url) {
+        return ((null != url) && (url.startsWith("http://") || url.startsWith("https://")));
     }
 }

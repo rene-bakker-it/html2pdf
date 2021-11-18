@@ -10,12 +10,16 @@ version '1.0'
 repositories {
     mavenCentral()
 }
+ext {
+    openhtmltopdfVersion = '1.0.10'
+}
 
 dependencies {
     implementation 'org.jsoup:jsoup:1.14.3'
     implementation 'org.xhtmlrenderer:flying-saucer-pdf-openpdf:9.1.22'
-    implementation 'com.openhtmltopdf:openhtmltopdf-core:1.0.10'
-    implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
+    implementation "com.openhtmltopdf:openhtmltopdf-core:$openhtmltopdfVersion"
+    implementation "com.openhtmltopdf:openhtmltopdf-pdfbox:$openhtmltopdfVersion"
+    implementation "com.openhtmltopdf:openhtmltopdf-svg-support:$openhtmltopdfVersion"
 
     implementation 'com.beust:jcommander:1.81'
 

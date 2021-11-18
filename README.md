@@ -28,7 +28,6 @@ In the project directory:
     
     options:
     -c    cleanup the html before generating the pdf.
-          Only used for files. URL sources are always cleaned. 
     -e    encoding. Defaults to utf-8. Only used to clean files.
     -h    get help.
     
